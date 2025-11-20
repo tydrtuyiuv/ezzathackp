@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>موقع عزت للتشفير</title>
+<style>
+    /* صفحة عامة */
+    html,body{height:100%;margin:0;}
+    body {
+        font-family: "Arial", sans-serif;
+        direction: rtl;
+        color: #e6ffef;
+        background: #00140b;
+        overflow-x: hidden;
+    }
+
+    /* كانفاس الماتريكس */
+    #matrix {
+        position: fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        z-index:0;
+        pointer-events:none;
+        mix-blend-mode: screen;
+        opacity:0.28;
+    }
+
+    /* الحاوية */
+    .container {
+        position: relative;
+        z-index:2;
+        max-width: 980px;
+        margin: 28px auto;
+        padding: 20px;
+        backdrop-filter: blur(6px) saturate(1.05);
+        background: rgba(2,18,6,0.46);
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+
+    /* هيدر + لوجو */
+    .header { display:flex; align-items:center; gap:14px; justify-content:center; margin-bottom:14px; }
+    .logo { display:flex; align-items:center; gap:12px; }
+    .logo-badge {
+        width:60px; height:60px; border-radius:12px;
+        background: linear-gradient(135deg,#00d27a,#00b894);
+        display:flex; align-items:center; justify-content:center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        font-weight:900; color:#002613; font-size:22px;
+    }
+    h1 { margin:0; color:#bfffe6; font-size:26px; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+
+    /* textarea */
+    textarea {
+        width:100%; min-height:120px; resize: vertical;
+        padding:12px 14px; font-size:18px; border-radius:10px;
+        border:2px solid rgba(0,215,130,0.12);
+        background: rgba(255,255,255,0.02); color:#dfffee;
+        outline:none; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        transition: transform .12s, box-shadow .18s;
+    }
+    textarea:focus { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.6); }
+
+    /* ازرار */
+    .controls { margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .btn {
+        padding:10px 18px; font-size:16px; border-radius:10px; border:none; cursor:pointer;
+        color:white; background: linear-gradient(90deg,#00b894,#00d27a);
+        box-shadow: 0 8px 20px rgba(0,200,120,0.08);
+        transition: transform .12s, box-shadow .12s;
+    }
+    .btn.ghost { background: transparent; border:1px solid rgba(255,255,255,0.06); }
+    .btn:active{ transform: translateY(2px) scale(.995); }
+    .btn:hover{ transform: scale(1.04); box-shadow: 0 12px 30px rgba(0,215,140,0.12); }
+
+    /* صندوق الناتج */
+    #output {
+        margin-top:18px; min-height:88px; padding:14px; text-align:right; font-size:20px;
+        color:#eafff1; border-radius:10px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.32), rgba(0,0,0,0.18));
+        border:1px solid rgba(0,215,140,0.08); word-break:break-word; white-space:pre-wrap;
+    }
+    .caret{ display:inline-block; width:2px; height:1.2em; background:#7ff5b6; margin-left:6px; animation: blink 0.9s steps(2,start) infinite; vertical-align:middle;}
+    @keyframes blink{50%{opacity:0}}
+
+    /* رسالة */
+    .message { margin-top:10px; color:#9fffd6; font-weight:700; opacity:0; transition: opacity .25s, transform .25s; }
+    .message.show{ opacity:1; transform: translateY(0); }
+
+    /* جدول */
+    h2 { color:#bfffe6; margin-top:26px; margin-bottom:8px; text-align:center; }
+    table {
+        width:94%; margin:10px auto 26px; border-collapse:collapse; background: rgba(255,255,255,0.02);
+        color:#dfffee; border-radius:8px; overflow:hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    th, td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.03); font-size:16px; text-align:center; }
+    th { background: linear-gradient(90deg,#007a3d,#00b894); font-weight:800; }
+
+    /* responsiveness */
+    @media (max-width:560px){
+        .logo-badge{width:48px;height:48px;font-size:18px;}
+        h1{font-size:20px;}
+        textarea{font-size:16px;}
+        #output{font-size:18px;}
+    }
+</style>
+</head>
+<body>
+
+<!-- كانفاس الماتريكس -->
+<canvas id="matrix"></canvas>
+
+<div class="container">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-badge">E</div>
+            <h1>موقع <span style="color:#7ff5b6">Ezzat</span> للتشفير</h1>
+        </div>
+    </div>
+
+    <textarea id="textInput" placeholder="اكتب النص هنا..."></textarea>
+
+    <div class="controls">
+        <button class="btn" id="encryptBtn">تشفير</button>
+        <button class="btn ghost" id="decryptBtn">فك التشفير</button>
+        <button class="btn ghost" id="copyBtn">نسخ الناتج</button>
+        <button class="btn ghost" id="showKeyBtn">عرض المفتاح/الجدول</button>
+    </div>
+
+    <div id="output" aria-live="polite">الناتج سيظهر هنا...</div>
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+
+    <h2 id="keyTitle" style="display:none">جدول تحويل الحروف</h2>
+    <div id="keyTableWrap" style="display:none">
+        <table id="keyTable" aria-hidden="false">
+            <thead><tr><th>الحرف الأصلي</th><th>يصبح</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- جدول ثابت تحت -->
+<div style="max-width:980px;margin:18px auto 40px;padding:0 14px;">
+    <h2>المفتاح (مرئي)</h2>
+    <table><thead><tr><th>الحرف الأصلي</th><th>يصبح</th></tr></thead>
+        <tbody id="staticKey"></tbody>
+    </table>
+</div>
+
+<script>
+/* ====== 1) الخريطة (عربي + إنجليزي كبير/صغير + أرقام) ====== */
+const map = {
+    // Arabic
+    "ا":"ض","ب":"ص","ت":"ث","ث":"ق","ج":"ف","ح":"غ",
+    "خ":"ع","د":"ه","ذ":"خ","ر":"ح","ز":"ج","س":"ش",
+    "ش":"س","ص":"ي","ض":"ب","ط":"ل","ظ":"ك","ع":"ت",
+    "غ":"ن","ف":"م","ق":"ا","ك":"و","ل":"ز","م":"ر",
+    "ن":"ذ","ه":"د","و":"خ","ي":"ط",
+    // English uppercase
+    "A":"Q","B":"W","C":"E","D":"R","E":"T","F":"Y",
+    "G":"U","H":"I","I":"O","J":"P","K":"A","L":"S",
+    "M":"D","N":"F","O":"G","P":"H","Q":"J","R":"K",
+    "S":"L","T":"Z","U":"X","V":"C","W":"V","X":"B",
+    "Y":"N","Z":"M",
+    // English lowercase
+    "a":"q","b":"w","c":"e","d":"r","e":"t","f":"y",
+    "g":"u","h":"i","i":"o","j":"p","k":"a","l":"s",
+    "m":"d","n":"f","o":"g","p":"h","q":"j","r":"k",
+    "s":"l","t":"z","u":"x","v":"c","w":"v","x":"b",
+    "y":"n","z":"m",
+    // Numbers
+    "0":"9","1":"8","2":"7","3":"6","4":"5",
+    "5":"4","6":"3","7":"2","8":"1","9":"0"
+};
+/* reverse map لبناء فك التشفير */
+const revMap = {};
+Object.keys(map).forEach(k => revMap[ map[k] ] = k);
+
+/* ====== 2) صوت Click عبر WebAudio ====== */
+function playClick(){
+    try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 900;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(ctx.destination);
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.06, now + 0.003);
+        o.start(now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+        o.stop(now + 0.15);
+        setTimeout(()=>{ try{ ctx.close(); }catch(e){} }, 400);
+    }catch(e){}
+}
+
+/* ====== 3) Typewriter effect ====== */
+function typeWrite(targetElem, text, speed=30){
+    targetElem.textContent = "";
+    const caret = document.createElement('span');
+    caret.className = 'caret';
+    let i = 0;
+    targetElem.appendChild(caret);
+    function step(){
+        if(i < text.length){
+            // Support for combining chars – insert by code unit is fine for Arabic/English here
+            const ch = text.charAt(i);
+            const node = document.createTextNode(ch);
+            targetElem.insertBefore(node, caret);
+            i++;
+            setTimeout(step, speed);
+        } else {
+            caret.remove();
+        }
+    }
+    step();
+}
+
+/* ====== 4) تشفير و فك تشفير ====== */
+function encryptText(input){
+    let out = "";
+    for (let ch of input) out += (map[ch] ? map[ch] : ch);
+    return out;
+}
+function decryptText(input){
+    let out = "";
+    for (let ch of input) out += (revMap[ch] ? revMap[ch] : ch);
+    return out;
+}
+
+/* ====== 5) DOM handlers ====== */
+const input = document.getElementById('textInput');
+const output = document.getElementById('output');
+const msg = document.getElementById('message');
+const encryptBtn = document.getElementById('encryptBtn');
+const decryptBtn = document.getElementById('decryptBtn');
+const copyBtn = document.getElementById('copyBtn');
+const showKeyBtn = document.getElementById('showKeyBtn');
+const keyTitle = document.getElementById('keyTitle');
+const keyTableWrap = document.getElementById('keyTableWrap');
+
+encryptBtn.addEventListener('click', ()=> {
+    playClick();
+    const txt = input.value;
+    if(!txt || !txt.trim()){ output.textContent = "رجاءً اكتب نص للتشفير"; return; }
+    const enc = encryptText(txt);
+    typeWrite(output, enc, 28);
+    showTempMessage("تم التشفير بنجاح! 🔐");
+});
+decryptBtn.addEventListener('click', ()=> {
+    playClick();
+    const txt = input.value;
+    if(!txt || !txt.trim()){ output.textContent = "رجاءً ضع النص المشفر هنا"; return; }
+    const dec = decryptText(txt);
+    typeWrite(output, dec, 26);
+    showTempMessage("تم فك التشفير ✅");
+});
+copyBtn.addEventListener('click', ()=> {
+    playClick();
+    const text = output.textContent.trim();
+    if(!text){ showTempMessage("لا يوجد نص للنسخ"); return; }
+    navigator.clipboard?.writeText(text).then(()=> {
+        showTempMessage("تم نسخ الناتج للحافظة ✂️");
+    }).catch(()=> { showTempMessage("فشل النسخ — انسخ يدويًا"); });
+});
+
+showKeyBtn.addEventListener('click', ()=> {
+    playClick();
+    if(keyTableWrap.style.display === 'none'){
+        keyTableWrap.style.display = 'block';
+        keyTitle.style.display = 'block';
+        showKeyBtn.textContent = 'إخفاء المفتاح';
+    } else {
+        keyTableWrap.style.display = 'none';
+        keyTitle.style.display = 'none';
+        showKeyBtn.textContent = 'عرض المفتاح/الجدول';
+    }
+});
+
+function showTempMessage(txt, time=1600){
+    msg.textContent = txt;
+    msg.classList.add('show');
+    setTimeout(()=>{ msg.classList.remove('show'); }, time);
+}
+
+/* ====== 6) تعبئة الجداول تلقائي ====== */
+function fillKeyTables(){
+    const tbody = document.querySelector('#keyTable tbody');
+    const staticTbody = document.getElementById('staticKey');
+    tbody.innerHTML = ""; staticTbody.innerHTML = "";
+    // نجعرض المفاتيح مرتبة: عربية ثم انجليزية كبيرة ثم صغيرة ثم ارقام
+    const arabicKeys = Object.keys(map).filter(k => k.match(/[\u0600-\u06FF]/));
+    const upperKeys = Object.keys(map).filter(k => k.match(/[A-Z]/));
+    const lowerKeys = Object.keys(map).filter(k => k.match(/[a-z]/));
+    const numberKeys = Object.keys(map).filter(k => k.match(/[0-9]/));
+    const groups = [arabicKeys, upperKeys, lowerKeys, numberKeys];
+    groups.forEach(g => {
+        g.forEach(k => {
+            const v = map[k];
+            const tr = document.createElement('tr');
+            const td1 = document.createElement('td'); td1.textContent = k;
+            const td2 = document.createElement('td'); td2.textContent = v;
+            tr.appendChild(td1); tr.appendChild(td2);
+            tbody.appendChild(tr);
+            staticTbody.appendChild(tr.cloneNode(true));
+        });
+    });
+}
+fillKeyTables();
+
+/* ====== 7) كانفاس الماتريكس (اخضر) ====== */
+(function matrixInit(){
+    const canvas = document.getElementById('matrix');
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = window.innerWidth;
+    let H = canvas.height = window.innerHeight;
+    const fontSize = 14;
+    let columns = Math.floor(W / fontSize);
+    let drops = new Array(columns).fill(1);
+    const chars = '01٠١١٠١٠١٠١١٠١١١٠١١'; // خلي مزيج
+    function resize(){
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        columns = Math.floor(W / fontSize);
+        drops = new Array(columns).fill(1);
+    }
+    window.addEventListener('resize', resize);
+    function draw(){
+        // شوية ظلال لعمل أثر التتابع
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#00ff6a'; // أخضر
+        ctx.font = fontSize + 'px monospace';
+        for (let i = 0; i < drops.length; i++){
+            const text = chars.charAt(Math.floor(Math.random() * chars.length));
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if(drops[i] * fontSize > H && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+        requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+/* ====== 8) محاولة لصق من الحافظة (اختياري) ====== */
+(async function tryPasteOnLoad(){
+    try{
+        const text = await navigator.clipboard?.readText?.();
+        if(text && text.length < 1000 && !input.value) {
+            // نعرض اقتراح صغير بدل اللصق التلقائي
+            // لو حابب تفعّل اللصق تلقائيًا خلي السطر التالي يعمل:
+            // input.value = text;
+        }
+    }catch(e){}
+})();
+</script>
+</body>
+</html>
+
